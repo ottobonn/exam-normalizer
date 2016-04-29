@@ -1,2 +1,3 @@
 Wand==0.4.2
 pypdftk==0.3
+qrtools==0.0.1

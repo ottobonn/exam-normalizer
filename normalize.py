@@ -7,8 +7,10 @@ import os, sys
 import pypdftk
 import tempfile
 from wand.image import Image
+from qrtools import QR
 
 TEMP_DIR = "./tmp/"
+FRONT_PAGE_CODE = "exam-normalizer-1"
 
 def split(input_filename):
   """Split the input file given by input_filename into individual pages.
@@ -33,12 +35,29 @@ def convert_to_images(input_filenames):
     image_files.append((handle, output_filename))
   return image_files
 
+def is_front_page(image_filename):
+  """ Return True if the given image is a front page (based on a QR code)
+  or false otherwise. The QR code must contain FRONT_PAGE_CODE to indicate that
+  the page is a front page. """
+  scanner = QR(filename=image_filename)
+  if scanner.decode():
+    data = scanner.data
+    if data == FRONT_PAGE_CODE:
+      return True
+  return False
+
 def main():
   if not os.path.exists(TEMP_DIR):
     os.makedirs(TEMP_DIR)
 
   pages = split("samples/sample.pdf")
   images = convert_to_images(pages)
+
+  for handle, name in images:
+    if is_front_page(name):
+      print name + " is front page."
+    else:
+      print name + " is not front page."
 
   for handle, name in images:
     os.close(handle)
