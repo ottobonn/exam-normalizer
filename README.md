@@ -1,2 +1,2 @@
 # exam-normalizer
-Make exams the correct length
+Make exams the correct length by reading a QR code on the cover sheet of each exam, using that to split exams into separate PDFs, and appending blank pages as needed to ensure all the resulting exams are the same length.
