@@ -11,6 +11,8 @@ from qrtools import QR
 
 TEMP_DIR = "./tmp/"
 FRONT_PAGE_CODE = "exam-normalizer-1"
+BLANK_PAGE_FILENAME = "blank.pdf"
+
 
 def split(input_filename):
   """Split the input file given by input_filename into individual pages.
@@ -24,15 +26,15 @@ def split(input_filename):
 def convert_to_images(input_filenames):
   """ Convert each of the files given by the input filenames into a jpg.
   The files will be written into a temporary directory.
-  Return a list of tuples, where the first item of each is a handle to an open image file,
-  and the second is the name of the file. """
+  Return a list of image filenames. """
   image_files = []
   for input_file in input_filenames:
     handle, output_filename = tempfile.mkstemp(dir=TEMP_DIR, suffix=".jpg")
     with Image(filename=input_file, resolution=200) as img:
       img.compression_quality = 70
       img.save(filename=output_filename)
-    image_files.append((handle, output_filename))
+    image_files.append(output_filename)
+    os.close(handle)
   return image_files
 
 def is_front_page(image_filename):
@@ -46,21 +48,34 @@ def is_front_page(image_filename):
       return True
   return False
 
+def pad_documents(pages, correct_length):
+  """ Insert blank pages into the page list such that the cover pages are separated
+  by correct_length pages. "pages" is a list of all the documents' pages, in order.
+  pages: a list of tuples, where each tuple is:
+    0. The page's PDF filename
+    1. The page's image filename
+  """
+  # Start with a correct_length document already "processed", so we don't try
+  # to pad before the very first cover page.
+  new_pages = []
+  for page_tuple in pages:
+    _, image_name = page_tuple
+    if is_front_page(image_name):
+      new_pages += [(BLANK_PAGE_FILENAME, None)]*(-len(new_pages)%correct_length)
+    new_pages.append(page_tuple)
+  # Pad last document to correct length
+  new_pages += [(BLANK_PAGE_FILENAME, None)]*(-len(new_pages)%correct_length)
+  return new_pages
+
 def main():
   if not os.path.exists(TEMP_DIR):
     os.makedirs(TEMP_DIR)
 
-  pages = split("samples/sample.pdf")
+  pages = split("samples/2samples.pdf")
   images = convert_to_images(pages)
-
-  for handle, name in images:
-    if is_front_page(name):
-      print name + " is front page."
-    else:
-      print name + " is not front page."
-
-  for handle, name in images:
-    os.close(handle)
+  pages = zip(pages, images)
+  padded = pad_documents(pages, 10)
+  print padded
 
   return 0
 
