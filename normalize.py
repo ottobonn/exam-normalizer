@@ -1,9 +1,10 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python
 
 # Insert pages into exams, given the correct exam length and
 # a special marker on the cover page of each exam.
 
-import os, sys
+import os
+import sys
 import pypdftk
 import tempfile
 from wand.image import Image
@@ -21,7 +22,7 @@ def split(input_filename):
   pages = pypdftk.split(input_filename, output_dirname)
   # Keep only PDFs. PDFTk puts out a document info text file as well.
   pages = [page for page in pages if page.rsplit(".", 1)[1] == "pdf"]
-  return pages;
+  return pages
 
 def convert_to_images(input_filenames):
   """ Convert each of the files given by the input filenames into a jpg.
