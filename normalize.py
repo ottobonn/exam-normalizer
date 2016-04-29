@@ -1,9 +1,10 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python
 
 # Insert pages into exams, given the correct exam length and
 # a special marker on the cover page of each exam.
 
-import os, sys
+import os
+import sys
 import pypdftk
 import tempfile
 from wand.image import Image
