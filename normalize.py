@@ -10,32 +10,42 @@ import tempfile
 from wand.image import Image
 from qrtools import QR
 
-TEMP_DIR = "./tmp/"
 FRONT_PAGE_CODE = "exam-normalizer-1"
 BLANK_PAGE_FILENAME = "blank.pdf"
 
 def split(input_filename):
     """Split the input file given by input_filename into individual pages.
-    The page files will be written as PDFs into a temporary directory."""
-    output_dirname = tempfile.mkdtemp(dir=TEMP_DIR)
-    pages = pypdftk.split(input_filename, output_dirname)
-    # Keep only PDFs. PDFTk puts out a document info text file as well.
-    pages = [page for page in pages if page.rsplit(".", 1)[1] == "pdf"]
-    return pages
+    The page files will be written as PDFs into a temporary directory.
+    Returns a tuple, where the first element is the output directory name,
+    and the second is the list of PDFs of the pages."""
+    pdf_directory = tempfile.mkdtemp(dir="./")
+    pages = pypdftk.split(input_filename, pdf_directory)
+    # Keep only PDFs. PDFTk puts out a document info text file as well, which
+    # we delete.
+    pdfs = []
+    for page in pages:
+        if page.rsplit(".", 1)[1] == "pdf":
+            pdfs.append(page)
+        else:
+            os.remove(page)
+    return (pdf_directory, pdfs)
 
 def convert_to_images(input_filenames):
     """ Convert each of the files given by the input filenames into a jpg.
     The files will be written into a temporary directory.
-    Return a list of image filenames. """
+    Return a tuple, where the first element is the directory created to hold
+    the images, and the second is a list of image filenames. """
+    image_directory = tempfile.mkdtemp(dir="./")
     image_files = []
     for input_file in input_filenames:
-        handle, output_filename = tempfile.mkstemp(dir=TEMP_DIR, suffix=".jpg")
+        handle, output_filename = tempfile.mkstemp(dir=image_directory,
+                                                   suffix=".jpg")
         with Image(filename=input_file, resolution=200) as img:
             img.compression_quality = 70
             img.save(filename=output_filename)
         image_files.append(output_filename)
         os.close(handle)
-    return image_files
+    return (image_directory, image_files)
 
 def is_front_page(image_filename):
     """ Return True if the given image is a front page (based on a QR code)
@@ -55,6 +65,7 @@ def pad_documents(pages, correct_length):
     pages: a list of tuples, where each tuple is:
     0. The page's PDF filename
     1. The page's image filename
+    Returns the augmented list of pages and images.
     """
     # Start with a correct_length document already "processed", so we don't try
     # to pad before the very first cover page.
@@ -69,15 +80,18 @@ def pad_documents(pages, correct_length):
     return new_pages
 
 def main():
-    if not os.path.exists(TEMP_DIR):
-        os.makedirs(TEMP_DIR)
-
-    pages = split("samples/2samples.pdf")
-    images = convert_to_images(pages)
-    pages = zip(pages, images)
-    padded = pad_documents(pages, 10)
-    print padded
-
+    pdf_directory, pages = split("samples/2samples.pdf")
+    image_directory, images = convert_to_images(pages)
+    pages_with_images = zip(pages, images)
+    padded = pad_documents(pages_with_images, 10)
+    padded_pdfs = [page_tuple[0] for page_tuple in padded]
+    merged_filename = pypdftk.concat(padded_pdfs, "merged.pdf")
+    for pdf_name, image_name in pages_with_images:
+        os.remove(pdf_name)
+        os.remove(image_name)
+    os.rmdir(pdf_directory)
+    os.rmdir(image_directory)
+    print("Merged result written to " + merged_filename + ".")
     return 0
 
 if __name__ == "__main__":
