@@ -80,11 +80,11 @@ def pad_documents(pages, correct_length):
     new_pages += [(BLANK_PAGE_FILENAME, None)]*(-len(new_pages)%correct_length)
     return new_pages
 
-def main(input_filename, output_filename):
+def main(input_filename, output_filename, correct_length):
     pdf_directory, pages = split(input_filename)
     image_directory, images = convert_to_images(pages)
     pages_with_images = zip(pages, images)
-    padded = pad_documents(pages_with_images, 10)
+    padded = pad_documents(pages_with_images, correct_length)
     padded_pdfs = [page_tuple[0] for page_tuple in padded]
     merged_filename = pypdftk.concat(padded_pdfs, output_filename)
     for pdf_name, image_name in pages_with_images:
@@ -101,7 +101,11 @@ if __name__ == "__main__":
                         help='the filename of the PDF of exams')
     parser.add_argument('output_file', type=str, nargs=1,
                     help='the filename of the resulting PDF of padded exams')
+    parser.add_argument('correct_page_count', type=int, nargs=1,
+                    help='the correct number of pages per exam')
+
     args = parser.parse_args()
     input_filename = args.input_file[0]
     output_filename = args.output_file[0]
-    sys.exit(main(input_filename, output_filename))
+    correct_length = args.correct_page_count[0]
+    sys.exit(main(input_filename, output_filename, correct_length))
