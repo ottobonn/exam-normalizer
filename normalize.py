@@ -20,6 +20,8 @@ FRONT_PAGE_CODE = "exam-normalizer-1"
 BLANK_PAGE_FILENAME = "blank.pdf"
 
 class Document(object):
+    """Class representing a document. Automatically handles padding to the
+    correct length."""
     def __init__(self, target_length):
         self._scans = []
         self.target_length = target_length
@@ -29,13 +31,16 @@ class Document(object):
         self._scans.append(page)
 
     @property
-    def scans(self):
+    def pages(self):
+        """Returns the list of pages added to this document so far, with
+        padding to a multiple of the target length."""
         padding = [(BLANK_PAGE_FILENAME, None)]
         return self._scans + padding*(-len(self._scans) % self.target_length)
 
     @property
     def pdf_pages(self):
-        return [pdf for pdf, _ in self.scans]
+        """As pages, but returns only the pdfs, not associated images."""
+        return [pdf for pdf, _ in self.pages]
 
     @property
     def isPadded(self):
@@ -98,13 +103,12 @@ def is_front_page(image_filename):
     return False
 
 def split_documents(pages, correct_length):
-    """ Insert blank pages into the page list such that the cover pages are
-    separated by correct_length pages. "pages" is a list of all the documents'
-    pages, in order.
+    """Given a list of all the documents' pages in order, detects cover pages
+    and splits into Documents.
     pages: a list of tuples, where each tuple is:
-    0. The page's PDF filename
-    1. The page's image filename
-    Returns the augmented list of pages and images.
+           0. The page's PDF filename
+           1. The page's image filename
+    Returns a list of Documents.
     """
     documents = []
     cur_doc = Document(correct_length)
@@ -124,9 +128,10 @@ def main(input_filename, output_filename, correct_length):
     pages_with_images = zip(pages, images)
 
     docs = split_documents(pages_with_images, correct_length)
+    # split into docs with and without padding
     good_docs = [doc for doc in docs if not doc.isPadded]
     padded_docs = [doc for doc in docs if doc.isPadded]
-
+    # flatten and pull out just the pdf filenames
     good_pdfs = [pdf for doc in good_docs for pdf in doc.pdf_pages]
     padded_pdfs = [pdf for doc in padded_docs for pdf in doc.pdf_pages]
 
