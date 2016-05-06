@@ -13,11 +13,33 @@ from multiprocessing import Pool
 
 # hack to get pypdftk to import correctly on mac
 if not os.path.exists('/usr/bin/pdftk'):
-  os.environ['PDFTK_PATH'] = '/usr/local/bin/pdftk'
+    os.environ['PDFTK_PATH'] = '/usr/local/bin/pdftk'
 import pypdftk
 
 FRONT_PAGE_CODE = "exam-normalizer-1"
 BLANK_PAGE_FILENAME = "blank.pdf"
+
+class Document(object):
+    def __init__(self, target_length):
+        self._scans = []
+        self.target_length = target_length
+
+    def add_page(self, page):
+        """Page should be a tuple of (pdf filename, image filename)."""
+        self._scans.append(page)
+
+    @property
+    def scans(self):
+        padding = [(BLANK_PAGE_FILENAME, None)]
+        return self._scans + padding*(-len(self._scans) % self.target_length)
+
+    @property
+    def pdf_pages(self):
+        return [pdf for pdf, _ in self.scans]
+
+    @property
+    def isPadded(self):
+        return len(self._scans) < self.target_length
 
 
 def split(input_filename):
@@ -75,7 +97,7 @@ def is_front_page(image_filename):
             return True
     return False
 
-def pad_documents(pages, correct_length):
+def split_documents(pages, correct_length):
     """ Insert blank pages into the page list such that the cover pages are
     separated by correct_length pages. "pages" is a list of all the documents'
     pages, in order.
@@ -84,31 +106,44 @@ def pad_documents(pages, correct_length):
     1. The page's image filename
     Returns the augmented list of pages and images.
     """
-    # Start with a correct_length document already "processed", so we don't try
-    # to pad before the very first cover page.
-    new_pages = []
+    documents = []
+    cur_doc = Document(correct_length)
     for page_tuple in pages:
         _, image_name = page_tuple
         if is_front_page(image_name):
-            new_pages += [(BLANK_PAGE_FILENAME, None)]*(-len(new_pages)%correct_length)
-        new_pages.append(page_tuple)
-    # Pad last document to correct length
-    new_pages += [(BLANK_PAGE_FILENAME, None)]*(-len(new_pages)%correct_length)
-    return new_pages
+            documents.append(cur_doc)
+            cur_doc = Document(correct_length)
+        cur_doc.add_page(page_tuple)
+    documents.append(cur_doc)
+    return documents
+
 
 def main(input_filename, output_filename, correct_length):
     pdf_directory, pages = split(input_filename)
     image_directory, images = convert_to_images(pages)
     pages_with_images = zip(pages, images)
-    padded = pad_documents(pages_with_images, correct_length)
-    padded_pdfs = [page_tuple[0] for page_tuple in padded]
-    merged_filename = pypdftk.concat(padded_pdfs, output_filename)
+
+    docs = split_documents(pages_with_images, correct_length)
+    good_docs = [doc for doc in docs if not doc.isPadded]
+    padded_docs = [doc for doc in docs if doc.isPadded]
+
+    good_pdfs = [pdf for doc in good_docs for pdf in doc.pdf_pages]
+    padded_pdfs = [pdf for doc in padded_docs for pdf in doc.pdf_pages]
+
+    if len(good_pdfs) > 0:
+        pypdftk.concat(good_pdfs, output_filename + '_good.pdf')
+    if len(padded_pdfs) > 0:
+        pypdftk.concat(padded_pdfs, output_filename + '_padded.pdf')
+
+    # cleanup temp files
     for pdf_name, image_name in pages_with_images:
         os.remove(pdf_name)
         os.remove(image_name)
     os.rmdir(pdf_directory)
     os.rmdir(image_directory)
-    print("Merged result written to " + merged_filename + ".")
+
+    print("Merged results written to {0}_good.pdf and {0}_padded.pdf".format(
+        output_filename))
     return 0
 
 if __name__ == "__main__":
@@ -116,7 +151,7 @@ if __name__ == "__main__":
     parser.add_argument('input_file', type=str, nargs=1,
                         help='the filename of the PDF of exams')
     parser.add_argument('output_file', type=str, nargs=1,
-                    help='the filename of the resulting PDF of padded exams')
+                    help='the filename prefix for the resulting PDFs of padded exams')
     parser.add_argument('correct_page_count', type=int, nargs=1,
                     help='the correct number of pages per exam')
 
