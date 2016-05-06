@@ -44,10 +44,9 @@ def convert_file_to_image(file_dir_tuple):
     input_file, image_directory = file_dir_tuple
     handle, output_filename = tempfile.mkstemp(dir=image_directory,
                                                suffix=".jpg")
-    with Image(filename=input_file, resolution=200) as img:
-        img.compression_quality = 70
+    with Image(filename=input_file, resolution=60) as img:
+        img.compression_quality = 90
         img.save(filename=output_filename)
-        img.save(filename='test_file.jpg')
     os.close(handle)
     return output_filename
 
