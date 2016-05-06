@@ -43,8 +43,16 @@ class Document(object):
         return [pdf for pdf, _ in self.pages]
 
     @property
+    def length(self):
+        return len(self._scans)
+
+    @property
+    def padding_length(self):
+        return self.target_length - self.length
+
+    @property
     def isPadded(self):
-        return len(self._scans) < self.target_length
+        return self.padding_length > 0
 
 
 def split(input_filename):
@@ -115,12 +123,29 @@ def split_documents(pages, correct_length):
     for page_tuple in pages:
         _, image_name = page_tuple
         if is_front_page(image_name):
-            documents.append(cur_doc)
+            if cur_doc.length > 0:
+                documents.append(cur_doc)
             cur_doc = Document(correct_length)
         cur_doc.add_page(page_tuple)
     documents.append(cur_doc)
     return documents
 
+def show_summary(good_docs, padded_docs):
+    print("\n--- Summary ---\n")
+    total_docs = len(good_docs) + len(padded_docs)
+    print("Total documents found: {0}".format(total_docs))
+    print("Did not alter: {0} documents".format(len(good_docs)))
+    print("Added padding: {0} documents".format(len(padded_docs)))
+    padding_counts = [doc.padding_length for doc in padded_docs]
+    average_padding = float(sum(padding_counts)) / len(padding_counts) \
+                      if len(padding_counts) > 0 else float(0)
+    print("Average padding: {0} pages".format(average_padding))
+    long_docs = [doc for doc in good_docs if doc.length > doc.target_length]
+    if len(long_docs) > 0:
+        print("Warning: {0} docs were longer than expected. "
+              "Perhaps these had obscured or missing cover pages?".format(
+                  len(long_docs)
+              ))
 
 def main(input_filename, output_filename, correct_length):
     pdf_directory, pages = split(input_filename)
@@ -146,6 +171,10 @@ def main(input_filename, output_filename, correct_length):
         os.remove(image_name)
     os.rmdir(pdf_directory)
     os.rmdir(image_directory)
+
+    print(good_docs)
+    print(padded_docs)
+    show_summary(good_docs, padded_docs)
 
     print("Merged results written to {0}_good.pdf and {0}_padded.pdf".format(
         output_filename))
