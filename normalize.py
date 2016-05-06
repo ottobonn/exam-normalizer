@@ -6,13 +6,19 @@
 import os
 import sys
 import argparse
-import pypdftk
 import tempfile
 from wand.image import Image
 from qrtools import QR
+from multiprocessing import Pool
+
+# hack to get pypdftk to import correctly on mac
+if not os.path.exists('/usr/bin/pdftk'):
+  os.environ['PDFTK_PATH'] = '/usr/local/bin/pdftk'
+import pypdftk
 
 FRONT_PAGE_CODE = "exam-normalizer-1"
 BLANK_PAGE_FILENAME = "blank.pdf"
+
 
 def split(input_filename):
     """Split the input file given by input_filename into individual pages.
@@ -31,21 +37,32 @@ def split(input_filename):
             os.remove(page)
     return (pdf_directory, pdfs)
 
+def convert_file_to_image(file_dir_tuple):
+    """Convert a single file into a jpg. Helper function to convert_to_images.
+    input_file and output_dir are received as a tuple so this can be more easily
+    used with Pool.map."""
+    input_file, image_directory = file_dir_tuple
+    handle, output_filename = tempfile.mkstemp(dir=image_directory,
+                                               suffix=".jpg")
+    with Image(filename=input_file, resolution=200) as img:
+        img.compression_quality = 70
+        img.save(filename=output_filename)
+        img.save(filename='test_file.jpg')
+    os.close(handle)
+    return output_filename
+
 def convert_to_images(input_filenames):
     """ Convert each of the files given by the input filenames into a jpg.
     The files will be written into a temporary directory.
     Return a tuple, where the first element is the directory created to hold
     the images, and the second is a list of image filenames. """
+    pool = Pool(4)
     image_directory = tempfile.mkdtemp(dir="./")
-    image_files = []
-    for input_file in input_filenames:
-        handle, output_filename = tempfile.mkstemp(dir=image_directory,
-                                                   suffix=".jpg")
-        with Image(filename=input_file, resolution=200) as img:
-            img.compression_quality = 70
-            img.save(filename=output_filename)
-        image_files.append(output_filename)
-        os.close(handle)
+    # pack arguments to convert_file_to_image
+    input_filenames = zip(input_filenames,
+                          [image_directory]*len(input_filenames))
+    image_files = pool.map(convert_file_to_image,
+                           input_filenames)
     return (image_directory, image_files)
 
 def is_front_page(image_filename):
