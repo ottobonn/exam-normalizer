@@ -48,7 +48,7 @@ class Document(object):
 
     @property
     def padding_length(self):
-        return self.target_length - self.length
+        return (-self.length) % self.target_length
 
     @property
     def isPadded(self):
@@ -70,6 +70,8 @@ def split(input_filename):
             pdfs.append(page)
         else:
             os.remove(page)
+    # sort pdfs into correct order (by extracting the actual page number)
+    pdfs.sort(key=lambda s: int(s[s.rfind('page_') + 5:-4]))
     return (pdf_directory, pdfs)
 
 def convert_file_to_image(file_dir_tuple):
@@ -172,8 +174,6 @@ def main(input_filename, output_filename, correct_length):
     os.rmdir(pdf_directory)
     os.rmdir(image_directory)
 
-    print(good_docs)
-    print(padded_docs)
     show_summary(good_docs, padded_docs)
 
     print("Merged results written to {0}_good.pdf and {0}_padded.pdf".format(
