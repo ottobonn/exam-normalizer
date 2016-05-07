@@ -110,6 +110,9 @@ def is_front_page(image_filename):
         data = scanner.data
         if data == FRONT_PAGE_CODE:
             return True
+        else:
+            print("Warning: Found a QR code that doesn't match the cover-page "
+                  "code.")
     return False
 
 def split_documents(pages, correct_length):
