@@ -59,3 +59,7 @@ In this case, to create a file called 'normalized.pdf':
 
 It might take a while to run; it has to convert each page to an image and scan
 it for QR codes.
+
+## Credits
+
+Emoji art supplied by [Emoji One](emojione.com)
