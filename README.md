@@ -37,7 +37,7 @@ in requirements.txt for the things you'll need to install.
 
     positional arguments:
       input_file          the filename of the PDF of exams
-      output_file         the filename of the resulting PDF of padded exams
+      output_file         the filename prefix for the resulting PDFs of padded exams
       correct_page_count  the correct number of pages per exam
 
     optional arguments:
@@ -50,15 +50,20 @@ to have 8 pages, but students might have ripped some out. I give
 exam-normalizer:
 
 * the name of the collection of exams, followed by
-* the name of the PDF file it should produce, followed by
+* the prefix for the PDF files it should produce, followed by
 * the correct number of pages in an exam.
 
 In this case, to create a file called 'normalized.pdf':
 
-    ./normalize.py exams.pdf normalized.pdf 8
+    ./normalize.py exams.pdf normalized 8
 
 It might take a while to run; it has to convert each page to an image and scan
 it for QR codes.
+
+The output will be in two files:
+
+* `normalized_good.pdf` will have all the exams that didn't need adjustment
+* `normalized_padded.pdf` will have all the exams that needed additional padding pages
 
 ## Credits
 
