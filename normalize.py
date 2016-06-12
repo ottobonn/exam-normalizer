@@ -17,6 +17,7 @@ if not os.path.exists('/usr/bin/pdftk'):
 import pypdftk
 
 FRONT_PAGE_CODE = "exam-normalizer-1"
+HEAP_PAGE_CODE = "exam-normalizer-2"
 BLANK_PAGE_FILENAME = "blank.pdf"
 
 class Document(object):
@@ -25,6 +26,7 @@ class Document(object):
     def __init__(self, target_length):
         self._scans = []
         self.target_length = target_length
+        self.has_heap_page = False
 
     def add_page(self, page):
         """Page should be a tuple of (pdf filename, image filename)."""
@@ -35,7 +37,11 @@ class Document(object):
         """Returns the list of pages added to this document so far, with
         padding to a multiple of the target length."""
         padding = [(BLANK_PAGE_FILENAME, None)]
-        return self._scans + padding*(-len(self._scans) % self.target_length)
+        if self.isPadded and not self.has_heap_page:
+            pages = self._scans[:12] + 2*padding + self._scans[12:]
+        else:
+            pages = self._scans
+        return pages + padding*(-len(pages) % self.target_length)
 
     @property
     def pdf_pages(self):
@@ -81,8 +87,9 @@ def convert_file_to_image(file_dir_tuple):
     input_file, image_directory = file_dir_tuple
     handle, output_filename = tempfile.mkstemp(dir=image_directory,
                                                suffix=".jpg")
-    with Image(filename=input_file, resolution=60) as img:
-        img.compression_quality = 90
+    with Image(filename=input_file, resolution=150) as img:
+        img.gaussian_blur(0, 1.)
+        img.compression_quality = 97
         img.save(filename=output_filename)
     os.close(handle)
     return output_filename
@@ -101,19 +108,16 @@ def convert_to_images(input_filenames):
                            input_filenames)
     return (image_directory, image_files)
 
-def is_front_page(image_filename):
+def get_qr_code(image_filename):
     """ Return True if the given image is a front page (based on a QR code)
     or false otherwise. The QR code must contain FRONT_PAGE_CODE to indicate
     that the page is a front page. """
     scanner = QR(filename=image_filename)
     if scanner.decode():
         data = scanner.data
-        if data == FRONT_PAGE_CODE:
-            return True
-        else:
-            print("Warning: Found a QR code that doesn't match the cover-page "
-                  "code.")
-    return False
+        return data
+    else:
+        return None
 
 def split_documents(pages, correct_length):
     """Given a list of all the documents' pages in order, detects cover pages
@@ -127,10 +131,15 @@ def split_documents(pages, correct_length):
     cur_doc = Document(correct_length)
     for page_tuple in pages:
         _, image_name = page_tuple
-        if is_front_page(image_name):
+        code = get_qr_code(image_name)
+        if code is not None:
+            print code
+        if code == FRONT_PAGE_CODE:
             if cur_doc.length > 0:
                 documents.append(cur_doc)
             cur_doc = Document(correct_length)
+        elif code == HEAP_PAGE_CODE:
+            cur_doc.has_heap_page = True
         cur_doc.add_page(page_tuple)
     documents.append(cur_doc)
     return documents
@@ -188,9 +197,9 @@ if __name__ == "__main__":
     parser.add_argument('input_file', type=str, nargs=1,
                         help='the filename of the PDF of exams')
     parser.add_argument('output_file', type=str, nargs=1,
-                    help='the filename prefix for the resulting PDFs of padded exams')
+                        help='the filename prefix for the resulting PDFs of padded exams')
     parser.add_argument('correct_page_count', type=int, nargs=1,
-                    help='the correct number of pages per exam')
+                        help='the correct number of pages per exam')
 
     args = parser.parse_args()
     input_filename = args.input_file[0]
